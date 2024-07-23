@@ -52,12 +52,11 @@ def eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, batch_size=1
     prompts = []
     chat_formatting_function = dynamic_import_function(
         args.chat_formatting_function) if args.use_chat_format else None
-    print("test_df.shape[0]",test_df.shape[0],test_df.shape)
+
     for i in range(0, test_df.shape[0]):
         prompt_end = format_example(test_df, i, include_answer=False)
         train_prompt = gen_prompt(dev_df, subject, k)
-        print("train_prompt",train_prompt)
-        print("prompt_end",prompt_end)
+
         
         prompt = train_prompt + prompt_end
         tokenized_prompt = tokenizer(
@@ -70,9 +69,7 @@ def eval_hf_model(args, subject, model, tokenizer, dev_df, test_df, batch_size=1
             tokenized_prompt = tokenizer(
                 prompt, truncation=False, add_special_tokens=False).input_ids
         prompts.append(prompt)
-        print("prompt",prompt)
-        exit()
-
+    
     # get the answer for all examples
     # adding a prefix space here, as that's expected from the prompt
     # TODO: should raise a warning if this returns more than one token
@@ -135,28 +132,29 @@ def main(args):
     }
     cat_cors = {cat: [] for cat in categories}
 
+    all_acc = []
+
     for subject in tqdm(subjects, desc=f"Evaluating subjects: "):
 
-        dev_df = pd.read_csv(
+        test_df = pd.read_csv(
             os.path.join(args.data_dir, "bad_case", subject + "_dev.csv"), header=None
         )
+        dev_df = pd.read_csv(
+            os.path.join(args.data_dir, "test", subject + "_test.csv"), header=None
+        )
 
-        if args.model_name_or_path:
-            if args.eval_valid:
-                test_df = dev_df
-            
-            cors, acc, probs = eval_hf_model(
-                args, subject, model, tokenizer, dev_df, test_df, args.eval_batch_size, k=args.ntrain)
+        cors, acc, probs = eval_hf_model(
+            args, subject, model, tokenizer, dev_df, test_df, args.eval_batch_size, k=args.ntrain)
+        all_acc.append(acc)
 
-        print(cors,acc)
-
+    print("ACC",np.mean(all_acc))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--ntrain",
         type=int,
-        default=5
+        default=0
     )
     parser.add_argument(
         "--data_dir",
